@@ -6,7 +6,9 @@ import Autocomplete from './components/autocomplete';
 import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import moment from 'moment-timezone';
 import ToggleSwitch from './components/toggle';
+import { app, analytics } from "./firebase";
 const ct = require("countries-and-timezones");
+
 
 mapboxgl.accessToken = 'pk.eyJ1IjoiY2FybG9zYWx2YXJlejkxIiwiYSI6ImNqOTdjNHVoNDBkZWkzM3FxdXh2YjgydDAifQ.HSeYyxtpV4OvyvGO5DeA-g';
 
@@ -28,6 +30,8 @@ type Timezone = {
 }
 
 const TimezoneMap = () => {
+  console.log("Firebase App initialized:", app);
+  console.log("Firebase Analytics initialized:", analytics);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const [inputHours, setInputHours] = useState<number>(0);
