@@ -37,7 +37,7 @@ const TimezoneMap = () => {
   const [result, setResult] = useState<string>();
   const [combined, setCombined] = useState<GeoJSON.FeatureCollection | null>(null);
   const [progress, setProgress] = useState(0); // For loading bar progress
-  const [format24h, setFormat24h] = useState(true);
+  const [format24h, setFormat24h] = useState(false);
   const [am, setAm] = useState(true);
 
   const allTimezones: Timezone[] = Object.values(ct.getAllTimezones());
@@ -344,7 +344,7 @@ const TimezoneMap = () => {
 
   return <>
           <div className={`relative flex flex-col items-center justify-center h-full w-full sm:h-[420px] sm:w-96 sm:fixed sm:bottom-3 sm:left-3 p-2.5 bg-white z-10 rounded-md rounded-base border-2 border-border dark:border-darkBorder  font-base shadow-light dark:shadow-dark`}>
-          <h1 className="absolute top-4 text-xs w-full text-lg font-bold text-center mb-4">Timezone Converter</h1>
+          <h1 className="absolute top-6 text-xs w-full text-xl font-bold text-center mb-4">Timezone Converter</h1>
 
             <div className="flex flex-col items-start gap-2">
             <div className='flex items-center gap-1'>12h <ToggleSwitch isToggled={format24h} setIsToggled={()=>setFormat24h(!format24h)} /> 24h</div>
@@ -435,7 +435,7 @@ const TimezoneMap = () => {
                 onClick={()=>setCurrentTime()}
                 disabled={!inputTZ}
                 >
-                  Use current time {inputTZ ? `in (${inputTZ})` : ''}
+                  Use current time {inputTZ ? `in (${inputTZ})` : ' in input TZ'}
               </Button>
               </div>
             </div>
