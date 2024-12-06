@@ -1,5 +1,7 @@
 # Timezone Converter
 
+![Screenshot](./screenshot.png)
+
 Project deployed here https://timezone-converter-c658d.web.app/
 
 This is a simple React app that allows users to convert between timezones. It uses the [moment-timezone](https://momentjs.com/timezone/) library to handle timezone conversions. 
