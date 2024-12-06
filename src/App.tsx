@@ -6,6 +6,7 @@ import Autocomplete from './components/autocomplete';
 import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 // import ToggleSwitch from './components/toggle';
 import moment from 'moment-timezone';
+import ToggleSwitch from './components/toggle';
 const ct = require("countries-and-timezones");
 
 mapboxgl.accessToken = 'pk.eyJ1IjoiY2FybG9zYWx2YXJlejkxIiwiYSI6ImNqOTdjNHVoNDBkZWkzM3FxdXh2YjgydDAifQ.HSeYyxtpV4OvyvGO5DeA-g';
@@ -28,8 +29,8 @@ type Timezone = {
 const TimezoneMap = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null)
-  const [inputHours, setInputHours] = useState<number | undefined>(undefined);
-  const [inputMinutes, setInputMinutes] = useState<number | undefined>(undefined);
+  const [inputHours, setInputHours] = useState<number>(0);
+  const [inputMinutes, setInputMinutes] = useState<number>(0);
   const [inputTZ, setInputTZ] = useState<string>();
   const [outputTZ, setOutputTZ] = useState<string>();
   const clickCount = useRef<number>(0)
@@ -37,6 +38,8 @@ const TimezoneMap = () => {
   const [result, setResult] = useState<string>();
   const [combined, setCombined] = useState<GeoJSON.FeatureCollection | null>(null);
   const [progress, setProgress] = useState(0); // For loading bar progress
+  const [format24h, setFormat24h] = useState(true);
+  const [am, setAm] = useState(true);
 
   const allTimezones: Timezone[] = Object.values(ct.getAllTimezones());
 
@@ -200,11 +203,23 @@ const TimezoneMap = () => {
   }
 
   function setCurrentTime() {
-    const currentTime = new Date()
-    const h = currentTime.getHours()
-    const m = currentTime.getMinutes()
-    setInputHours(h)
-    setInputMinutes(m)
+    const currentTime = new Date();
+    const h = currentTime.getHours(); // 24-hour format
+    const m = currentTime.getMinutes();
+  
+    if (format24h) {
+      // Set directly in 24-hour format
+      setInputHours(h);
+      setInputMinutes(m);
+    } else {
+      // Convert to 12-hour format
+      const isAm = h < 12; // True for AM, false for PM
+      const hourIn12 = h === 0 ? 12 : h > 12 ? h - 12 : h; // Convert 0 to 12, and 13-23 to 1-11
+  
+      setInputHours(hourIn12);
+      setInputMinutes(m);
+      setAm(isAm);
+    }
   }
 
   const cleanupLayers = (id: string) => {
@@ -289,47 +304,58 @@ const TimezoneMap = () => {
       return acc;
     }, []);
 
-
     const convertTZ = () => {
-
-        // Validate the input
-        if (!inputTZ || !outputTZ) {
-          console.error("Please select both input and output timezones.");
-          return;
+      // Validate the input
+      if (!inputTZ || !outputTZ) {
+        console.error("Please select both input and output timezones.");
+        return;
+      }
+    
+      console.log("Converting from:", inputTZ, "to:", outputTZ, "at hour:", inputHours, ":", inputMinutes);
+    
+      const currentDateTime = moment();
+    
+      // Adjust inputHours based on format24h and am/pm state
+      let adjustedHours = inputHours;
+      if (!format24h) {
+        if (am) {
+          adjustedHours = inputHours === 12 ? 0 : inputHours; // 12 AM maps to 0
+        } else {
+          adjustedHours = inputHours === 12 ? 12 : inputHours + 12; // 12 PM is 12, others add 12
         }
+      }
     
-        console.log("Converting from:", inputTZ, "to:", outputTZ, "at hour:", inputHours , ':', inputMinutes);
+      const paddedHours = String(adjustedHours).padStart(2, "0");
+      const paddedMinutes = String(inputMinutes).padStart(2, "0");
     
+      const inputTime = moment.tz(currentDateTime.format(`YYYY-MM-DD ${paddedHours}:${paddedMinutes}`), inputTZ);
     
-        const currentDateTime = moment();
-
-        const paddedHours = String(inputHours).padStart(2, "0");
-        const paddedMinutes = String(inputMinutes).padStart(2, "0");
-
-        const inputTime = moment.tz(currentDateTime.format(`YYYY-MM-DD ${paddedHours}:${paddedMinutes}`), inputTZ);
+      // Convert to the output timezone
+      const outputTime = inputTime.clone().tz(outputTZ);
+      const formattedOutputHour = format24h 
+      ? outputTime.format("HH:mm z") // 24-hour format, e.g., 15:00 IST
+      : outputTime.format("hh:mm A z"); // 12-hour format with AM/PM, e.g., 03:00 PM IST
     
-        // Convert to the output timezone
-        const outputTime = inputTime.clone().tz(outputTZ);
-        const formattedOutputHour = outputTime.format("HH:mm z"); // e.g.,15:00:00 IST
-
-        setResult(formattedOutputHour)
-  
-    }
+      setResult(formattedOutputHour);
+    };
+    
 
   return <>
-          <div className={`relative flex flex-col items-center justify-center h-full w-full sm:h-[400px] sm:w-96 sm:fixed sm:bottom-3 sm:left-3 p-2.5 bg-white z-10 rounded-md rounded-base border-2 border-border dark:border-darkBorder  font-base shadow-light dark:shadow-dark`}>
+          <div className={`relative flex flex-col items-center justify-center h-full w-full sm:h-[420px] sm:w-96 sm:fixed sm:bottom-3 sm:left-3 p-2.5 bg-white z-10 rounded-md rounded-base border-2 border-border dark:border-darkBorder  font-base shadow-light dark:shadow-dark`}>
+          <h1 className="absolute top-4 text-xs w-full text-lg font-bold text-center mb-4">Timezone Converter</h1>
+
             <div className="flex flex-col items-start gap-2">
-              <p className="text-center w-full font-bold mb-4 text-slate-700">Timezone converter</p>
-              <div className="flex flex-col">
-                <label htmlFor="hours" className="text-sm font-medium text-gray-700">
+            <div className='flex items-center gap-1'>12h <ToggleSwitch isToggled={format24h} setIsToggled={()=>setFormat24h(!format24h)} /> 24h</div>
+            <div className="flex flex-col">
+                <label htmlFor="hours" className="text-xs font-medium text-gray-700">
                   Time to convert
                 </label>
-              <div className="flex flex-row items-end gap-1">
-                  <Input
+              <div className="flex flex-row items-end gap-2">
+                <Input
                   value={inputHours}
                   type="number"
                   min={0}
-                  max={24}
+                  max={format24h ? 24 : 12}
                   placeholder="12"
                   className="w-14 h-10"
                   onChange={changeHours}
@@ -343,21 +369,20 @@ const TimezoneMap = () => {
                 className="w-14 h-10"
                 onChange={changeMinutes}
               />
-
+              {!format24h && <button onClick={()=>setAm(!am)} className='h-10 flex text-text cursor-pointer items-center rounded-base border-2 border-border dark:border-darkBorder bg-main px-4 py-2 text-sm font-base shadow-light dark:shadow-dark transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none'>
+                {am ? 'AM' : 'PM'}
+              </button>}
                 <Button
                 className="h-10 bg-blue-50 hover:bg-blue-100 text-xs text-black py-2 px-4 rounded"
                 onClick={()=>setCurrentTime()}
                 >
                   Use current time
               </Button>
-
-              {/* TODO:  <ToggleSwitch isToggled={true} setIsToggled={()=>console.log('...')} /> */}
-
               </div>
             </div>
-              <div className="flex flex-row gap-1 items-end mb-4">
+              <div className="flex flex-row gap-2 items-end mb-4">
                 <div className='flex flex-col'>
-                  <label htmlFor="input" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="input" className="text-xs font-medium text-gray-700">
                     Input timezone
                   </label>
                   <Autocomplete
@@ -410,9 +435,9 @@ const TimezoneMap = () => {
                   Use current TZ
                 </Button>
               </div>
-              <div className="flex gap-1 items-end">
+              <div className="flex gap-2 items-end mb-4">
                   <div className='flex flex-col'>
-                    <label htmlFor="output" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="output" className="text-xs font-medium text-gray-700">
                       Output timezone
                     </label>
                       <Autocomplete
@@ -465,10 +490,16 @@ const TimezoneMap = () => {
                 <Button onClick={()=>convertTZ()}>
                   Convert
                 </Button>
-                <span className='font-bold'>Result: {result}</span>
+                <div className='flex flex-col'>
+                  <span className='text-xs'>Time in output timezone: </span>
+                  <span className='font-extrabold'>{result}</span>
+                </div>
               </div>
             </div>
-            <span className="absolute bottom-3 left-3 text-xs">Made by <a rel="noreferrer" className="underline text-blue-500" href="http://carlosalvarez.surge.sh" target="_blank">Carlos</a> with 🫶 </span>
+            <div className='absolute bottom-3 left-3 text-xs'>
+              <a rel="noreferrer" className="underline text-blue-500" href="https://buymeacoffee.com/carlosalvarez13" target="_blank">Buy me a coffee</a>
+              🫶
+            </div>
           </div>
           {loading  && <div className='fixed opacity-80 bg-yellow-50 w-full h-full flex flex-col items-center justify-center'> 
                <span>Loading timezones ... </span>
