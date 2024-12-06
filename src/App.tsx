@@ -12,14 +12,16 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiY2FybG9zYWx2YXJlejkxIiwiYSI6ImNqOTdjNHVoNDBkZ
 
 const loadData = async () => {
   try {
-    const response = await fetch('https://timezone-converter-c658d.web.app/combined.json');
+    const baseUrl = window.location.hostname === 'localhost' 
+      ? 'https://timezone-converter-c658d.web.app' 
+      : '.';
+    const response = await fetch(`${baseUrl}/combined.json`);
     const data = await response.json();
     return data;
   } catch (error) {
     console.error('Error fetching data:', error);
   }
 };
-
 type Timezone = {
   name: string
   utcOffset: number
