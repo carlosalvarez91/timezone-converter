@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
-// import combined from './combined.json';
 import Button from './components/button';
 import Input from './components/input';
 import Autocomplete from './components/autocomplete';
@@ -21,6 +20,11 @@ const loadData = async () => {
   }
 };
 
+type Timezone = {
+  name: string
+  utcOffset: number
+}
+
 const TimezoneMap = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -34,6 +38,7 @@ const TimezoneMap = () => {
   const [combined, setCombined] = useState<GeoJSON.FeatureCollection | null>(null);
   const [progress, setProgress] = useState(0); // For loading bar progress
 
+  const allTimezones: Timezone[] = Object.values(ct.getAllTimezones());
 
   useEffect(() => {
     // TODO: Do not load geojson data in mobile
@@ -76,8 +81,6 @@ const TimezoneMap = () => {
           generateId: true, 
         });
   
-  
-  
         // Listen for the 'data' event to detect when the source is loaded
         map.on('data', (event:any) => {
           if (event.sourceId === 'timezones' && event.isSourceLoaded) {
@@ -100,13 +103,9 @@ const TimezoneMap = () => {
   
         // Handle click on timezone layer
         map.on('click', 'timezones-layer', (e) => {
+          console.log('Click on timezones layer:', e, e.features);
           if (!e.features || e.features.length === 0) return;
-          const clickedFeature = e.features[0];
-  
-  
-          const f = map.queryRenderedFeatures(e.point, { layers: ['timezones-layer'] });
-  
-  
+          const clickedFeature = e.features[0];  
           const timezone = clickedFeature.properties?.tzid || 'Unknown Timezone';
           console.log(`Clicked Timezone: ${timezone}`);
           handleMapClick(clickedFeature)
@@ -125,6 +124,14 @@ const TimezoneMap = () => {
   }, [combined]);
 
   const handleMapClick = (clickedFeature: Feature<Geometry, GeoJsonProperties>) => {
+
+    const tz = clickedFeature.properties?.tzid
+
+    const utcOffset = ct.getTimezone(tz).utcOffset
+
+    const tzsWithSameUtcOffset = allTimezones.filter(e=>e?.utcOffset === utcOffset).map(e=>e?.name)
+    const features = combined?.features?.filter(e=>tzsWithSameUtcOffset.includes(e.properties?.tzid))
+
     
     clickCount.current += 1;
     if (clickCount.current === 1) {
@@ -137,7 +144,7 @@ const TimezoneMap = () => {
                 type: 'geojson',
                 data: {
                   type: 'FeatureCollection',
-                  features: [clickedFeature], // Only the clicked feature
+                  features: features || [], // Only the clicked feature
                 },
               });
 
@@ -152,7 +159,7 @@ const TimezoneMap = () => {
                 },
               });
 
-              setInputTZ(clickedFeature.properties?.tzid)
+              setInputTZ(tz)
               
     } else if (clickCount.current === 2) {
                 cleanupLayers('highlighted-timezone-output')
@@ -161,7 +168,7 @@ const TimezoneMap = () => {
                       type: 'geojson',
                       data: {
                         type: 'FeatureCollection',
-                        features: [clickedFeature], // Only the clicked feature
+                        features: features || [], // Only the clicked feature
                       },
                     });
                     // Add a new layer for the highlighted feature
@@ -175,8 +182,8 @@ const TimezoneMap = () => {
                       },
                     });
 
-                    setOutputTZ(clickedFeature.properties?.tzid)
-      clickCount.current = 0;
+                    setOutputTZ(tz)
+                    clickCount.current = 0;
     }
 
   };
@@ -217,22 +224,26 @@ const TimezoneMap = () => {
       const data = await response.json();
 
       if (data?.timezone) {
+        const tz = data.timezone
         if (id==='input'){
-          setInputTZ(data.timezone)
+          setInputTZ(tz)
         }else {
-          setOutputTZ(data.timezone)
+          setOutputTZ(tz)
         }
-     
-        const feature = combined?.features?.find(e=>e.properties?.tzid === data.timezone)
+
+        const utcOffset = ct.getTimezone(tz).utcOffset
+        const tzsWithSameUtcOffset = allTimezones.filter(e=>e?.utcOffset === utcOffset).map(e=>e?.name)
+        const features = combined?.features?.filter(e=>tzsWithSameUtcOffset.includes(e.properties?.tzid))
+
 
         const layerId = `highlighted-timezone-${id}`
         cleanupLayers(layerId)
-        if (feature) {
+        if (features) {
           mapRef.current?.addSource(layerId, {
             type: 'geojson',
             data: {
               type: 'FeatureCollection',
-              features: [feature], // Only the clicked feature
+              features: features, // Only the clicked feature
             },
           });
   
@@ -257,10 +268,8 @@ const TimezoneMap = () => {
       name: string, 
       timezones: string[]
     }
+
     const allCountries: Country[] = Object.values(ct.getAllCountries())
-
-
-
     // Create a flat list of countries with their timezones
     const countryOptions = allCountries.map(country => ({
       label: country?.name,
@@ -308,29 +317,7 @@ const TimezoneMap = () => {
     }
 
   return <>
-          {loading  && <div className='absolute bg-yellow-50 w-full h-full flex flex-col items-center justify-center'> 
-               <span>Loading map ... </span>
-                <div
-              style={{
-                height: '10px',
-                width: '300px',
-                backgroundColor: '#ddd',
-                position: 'relative',
-                overflow: 'hidden',
-                marginBottom: '20px',
-              }}
-            >
-              <div
-                style={{
-                  height: '100%',
-                  width: `${progress}%`,
-                  backgroundColor: '#4caf50',
-                  transition: 'width 0.2s ease',
-                }}
-              />
-            </div>
-          </div>}
-          <div className={`${loading ? "hidden" : "block"} relative flex flex-col items-center justify-center h-full w-full sm:h-[400px] sm:w-96 sm:fixed sm:bottom-3 sm:left-3 p-2.5 bg-white z-10 rounded-md rounded-base border-2 border-border dark:border-darkBorder  font-base shadow-light dark:shadow-dark`}>
+          <div className={`relative flex flex-col items-center justify-center h-full w-full sm:h-[400px] sm:w-96 sm:fixed sm:bottom-3 sm:left-3 p-2.5 bg-white z-10 rounded-md rounded-base border-2 border-border dark:border-darkBorder  font-base shadow-light dark:shadow-dark`}>
             <div className="flex flex-col items-start gap-2">
               <p className="text-center w-full font-bold mb-4 text-slate-700">Timezone converter</p>
               <div className="flex flex-col">
@@ -364,7 +351,7 @@ const TimezoneMap = () => {
                   Use current time
               </Button>
 
-              {/* <ToggleSwitch isToggled={true} setIsToggled={()=>console.log('...')} /> */}
+              {/* TODO:  <ToggleSwitch isToggled={true} setIsToggled={()=>console.log('...')} /> */}
 
               </div>
             </div>
@@ -379,18 +366,23 @@ const TimezoneMap = () => {
                     onOptionClick={(e)=>{
                       const tz = e.value;
                       setInputTZ(tz)
-                        const feature = combined?.features?.find(e=>e.properties?.tzid === tz)
-                   
+
+                      if (combined) {
+
+                      const utcOffset = ct.getTimezone(tz).utcOffset
+                      const tzsWithSameUtcOffset = allTimezones.filter(e=>e?.utcOffset === utcOffset).map(e=>e?.name)
+                      const features = combined?.features?.filter(e=>tzsWithSameUtcOffset.includes(e.properties?.tzid))
+                             
 
                         cleanupLayers('highlighted-timezone-input');
 
-                        if (feature) {
+                        if (features) {
 
                           mapRef.current?.addSource('highlighted-timezone-input', {
                             type: 'geojson',
                             data: {
                               type: 'FeatureCollection',
-                              features: [feature], // Only the clicked feature
+                              features: features, // Only the clicked feature
                             },
                           });
   
@@ -405,7 +397,7 @@ const TimezoneMap = () => {
                           });
                         }
 
-
+                      }
 
                     }}
                     className='h-10'
@@ -431,17 +423,18 @@ const TimezoneMap = () => {
                           setOutputTZ(tz)
 
                           if (combined) {
-                            const feature = combined?.features?.find(e=>e.properties?.tzid === tz)
-                 
-
+                            const utcOffset = ct.getTimezone(tz).utcOffset
+                            const tzsWithSameUtcOffset = allTimezones.filter(e=>e?.utcOffset === utcOffset).map(e=>e?.name)
+                            const features = combined?.features?.filter(e=>tzsWithSameUtcOffset.includes(e.properties?.tzid))
+                
                             cleanupLayers('highlighted-timezone-output')
-                            if (feature) {
+                            if (features) {
 
                               mapRef.current?.addSource('highlighted-timezone-output', {
                                 type: 'geojson',
                                 data: {
                                   type: 'FeatureCollection',
-                                  features: [feature], // Only the clicked feature
+                                  features: features, // Only the clicked feature
                                 },
                               });
   
@@ -477,6 +470,28 @@ const TimezoneMap = () => {
             </div>
             <span className="absolute bottom-3 left-3 text-xs">Made by <a rel="noreferrer" className="underline text-blue-500" href="http://carlosalvarez.surge.sh" target="_blank">Carlos</a> with 🫶 </span>
           </div>
+          {loading  && <div className='fixed opacity-80 bg-yellow-50 w-full h-full flex flex-col items-center justify-center'> 
+               <span>Loading timezones ... </span>
+                <div
+              style={{
+                height: '10px',
+                width: '300px',
+                backgroundColor: '#ddd',
+                position: 'relative',
+                overflow: 'hidden',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${progress}%`,
+                  backgroundColor: '#4caf50',
+                  transition: 'width 0.2s ease',
+                }}
+              />
+            </div>
+          </div>}
           <div className="hidden sm:block" id="map" ref={mapContainer} style={{ width: '100%', height: '100vh'}} />
           </>;
 };
