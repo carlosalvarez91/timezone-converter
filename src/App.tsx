@@ -4,7 +4,6 @@ import Button from './components/button';
 import Input from './components/input';
 import Autocomplete from './components/autocomplete';
 import { Feature, GeoJsonProperties, Geometry } from 'geojson';
-// import ToggleSwitch from './components/toggle';
 import moment from 'moment-timezone';
 import ToggleSwitch from './components/toggle';
 const ct = require("countries-and-timezones");
@@ -203,22 +202,25 @@ const TimezoneMap = () => {
   }
 
   function setCurrentTime() {
-    const currentTime = new Date();
-    const h = currentTime.getHours(); // 24-hour format
-    const m = currentTime.getMinutes();
-  
-    if (format24h) {
-      // Set directly in 24-hour format
-      setInputHours(h);
-      setInputMinutes(m);
-    } else {
-      // Convert to 12-hour format
-      const isAm = h < 12; // True for AM, false for PM
-      const hourIn12 = h === 0 ? 12 : h > 12 ? h - 12 : h; // Convert 0 to 12, and 13-23 to 1-11
-  
-      setInputHours(hourIn12);
-      setInputMinutes(m);
-      setAm(isAm);
+    if (inputTZ) {
+      const currentTime = moment.tz(inputTZ); // Get current time in the specified timezone
+
+      const h = currentTime.hours(); // 24-hour format
+      const m = currentTime.minutes();
+    
+      if (format24h) {
+        // Set directly in 24-hour format
+        setInputHours(h);
+        setInputMinutes(m);
+      } else {
+        // Convert to 12-hour format
+        const isAm = h < 12; // True for AM, false for PM
+        const hourIn12 = h === 0 ? 12 : h > 12 ? h - 12 : h; // Convert 0 to 12, and 13-23 to 1-11
+    
+        setInputHours(hourIn12);
+        setInputMinutes(m);
+        setAm(isAm);
+      }
     }
   }
 
@@ -346,41 +348,8 @@ const TimezoneMap = () => {
 
             <div className="flex flex-col items-start gap-2">
             <div className='flex items-center gap-1'>12h <ToggleSwitch isToggled={format24h} setIsToggled={()=>setFormat24h(!format24h)} /> 24h</div>
-            <div className="flex flex-col">
-                <label htmlFor="hours" className="text-xs font-medium text-gray-700">
-                  Time to convert
-                </label>
-              <div className="flex flex-row items-end gap-2">
-                <Input
-                  value={inputHours}
-                  type="number"
-                  min={0}
-                  max={format24h ? 24 : 12}
-                  placeholder="12"
-                  className="w-14 h-10"
-                  onChange={changeHours}
-                />
-                <Input
-                value={inputMinutes}
-                type="number"
-                min={0}
-                max={60}
-                placeholder="00"
-                className="w-14 h-10"
-                onChange={changeMinutes}
-              />
-              {!format24h && <button onClick={()=>setAm(!am)} className='h-10 flex text-text cursor-pointer items-center rounded-base border-2 border-border dark:border-darkBorder bg-main px-4 py-2 text-sm font-base shadow-light dark:shadow-dark transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none'>
-                {am ? 'AM' : 'PM'}
-              </button>}
-                <Button
-                className="h-10 bg-blue-50 hover:bg-blue-100 text-xs text-black py-2 px-4 rounded"
-                onClick={()=>setCurrentTime()}
-                >
-                  Use current time
-              </Button>
-              </div>
-            </div>
-              <div className="flex flex-row gap-2 items-end mb-4">
+
+              <div className="flex flex-row gap-2 items-end">
                 <div className='flex flex-col'>
                   <label htmlFor="input" className="text-xs font-medium text-gray-700">
                     Input timezone
@@ -435,6 +404,41 @@ const TimezoneMap = () => {
                   Use current TZ
                 </Button>
               </div>
+              <div className="flex flex-col mb-4">
+                <label htmlFor="hours" className="text-xs font-medium text-gray-700">
+                  Time to convert
+                </label>
+              <div className="flex flex-row items-end gap-2">
+                <Input
+                  value={inputHours}
+                  type="number"
+                  min={0}
+                  max={format24h ? 24 : 12}
+                  placeholder="12"
+                  className="w-14 h-10"
+                  onChange={changeHours}
+                />
+                <Input
+                value={inputMinutes}
+                type="number"
+                min={0}
+                max={60}
+                placeholder="00"
+                className="w-14 h-10"
+                onChange={changeMinutes}
+              />
+              {!format24h && <button onClick={()=>setAm(!am)} className='h-10 flex text-text cursor-pointer items-center rounded-base border-2 border-border dark:border-darkBorder bg-main px-4 py-2 text-sm font-base shadow-light dark:shadow-dark transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none dark:hover:shadow-none'>
+                {am ? 'AM' : 'PM'}
+              </button>}
+                <Button
+                className="h-10 bg-blue-50 hover:bg-blue-100 text-xs text-black py-2 px-4 rounded"
+                onClick={()=>setCurrentTime()}
+                disabled={!inputTZ}
+                >
+                  Use current time {inputTZ ? `in (${inputTZ})` : ''}
+              </Button>
+              </div>
+            </div>
               <div className="flex gap-2 items-end mb-4">
                   <div className='flex flex-col'>
                     <label htmlFor="output" className="text-xs font-medium text-gray-700">
