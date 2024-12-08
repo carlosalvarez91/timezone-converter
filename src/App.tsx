@@ -7,6 +7,7 @@ import { Feature, GeoJsonProperties, Geometry } from 'geojson';
 import moment from 'moment-timezone';
 import ToggleSwitch from './components/toggle';
 import { app, analytics } from "./firebase";
+import { isMobile } from 'react-device-detect';
 const ct = require("countries-and-timezones");
 
 
@@ -49,7 +50,12 @@ const TimezoneMap = () => {
   const allTimezones: Timezone[] = Object.values(ct.getAllTimezones());
 
   useEffect(() => {
-    // TODO: Do not load geojson data in mobile
+    // Only load geojson data on desktop
+    if (isMobile) {
+      setLoading(false);
+      return;
+    }
+
     let intervalId: any;
     const fetchData = async () => {
       intervalId = setInterval(() => {
@@ -67,68 +73,68 @@ const TimezoneMap = () => {
     return () => clearInterval(intervalId); // Cleanup on unmount
   }, []);
 
-
   useEffect(() => {
-    // TODO: Do not load map in mobile
-    if (combined) {
-      const map = new mapboxgl.Map({
-        container: mapContainer.current!,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [0, 0],
-        zoom: 2,
-      });
-  
-      mapRef.current = map;
-  
-      // Load timezone GeoJSON
-      map.on('load', () => {
-  
-        map.addSource('timezones', {
-          type: 'geojson',
-          data: combined as GeoJSON.FeatureCollection, //timezones as GeoJSON.FeatureCollection,
-          generateId: true, 
-        });
-  
-        // Listen for the 'data' event to detect when the source is loaded
-        map.on('data', (event:any) => {
-          if (event.sourceId === 'timezones' && event.isSourceLoaded) {
-            console.log('Timezones source loaded!');
-            setLoading(false);
-          }
-        });
-  
-  
-        // Add the timezone layer
-        map.addLayer({
-          id: 'timezones-layer',
-          type: 'fill',
-          source: 'timezones',
-          paint: {
-            'fill-color': '#088', // Default color (teal)
-            'fill-opacity': 0.1,
-          },
-        });
-  
-        // Handle click on timezone layer
-        map.on('click', 'timezones-layer', (e) => {
-          console.log('Click on timezones layer:', e, e.features);
-          if (!e.features || e.features.length === 0) return;
-          const clickedFeature = e.features[0];  
-          const timezone = clickedFeature.properties?.tzid || 'Unknown Timezone';
-          console.log(`Clicked Timezone: ${timezone}`);
-          handleMapClick(clickedFeature)
-        });
-  
-        // Add cursor pointer on hover
-        map.on('mouseenter', 'timezones-layer', () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', 'timezones-layer', () => {
-          map.getCanvas().style.cursor = '';
-        });
-      });  
-      return () => map.remove();
+    // Only load map on desktop
+    if (isMobile || !combined) {
+      return;
     }
+
+    const map = new mapboxgl.Map({
+      container: mapContainer.current!,
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [0, 0],
+      zoom: 2,
+    });
+
+    mapRef.current = map;
+
+    // Load timezone GeoJSON
+    map.on('load', () => {
+
+      map.addSource('timezones', {
+        type: 'geojson',
+        data: combined as GeoJSON.FeatureCollection,
+        generateId: true, 
+      });
+
+      // Listen for the 'data' event to detect when the source is loaded
+      map.on('data', (event:any) => {
+        if (event.sourceId === 'timezones' && event.isSourceLoaded) {
+          console.log('Timezones source loaded!');
+          setLoading(false);
+        }
+      });
+
+      // Add the timezone layer
+      map.addLayer({
+        id: 'timezones-layer',
+        type: 'fill',
+        source: 'timezones',
+        paint: {
+          'fill-color': '#088', // Default color (teal)
+          'fill-opacity': 0.1,
+        },
+      });
+
+      // Handle click on timezone layer
+      map.on('click', 'timezones-layer', (e) => {
+        console.log('Click on timezones layer:', e, e.features);
+        if (!e.features || e.features.length === 0) return;
+        const clickedFeature = e.features[0];  
+        const timezone = clickedFeature.properties?.tzid || 'Unknown Timezone';
+        console.log(`Clicked Timezone: ${timezone}`);
+        handleMapClick(clickedFeature)
+      });
+
+      // Add cursor pointer on hover
+      map.on('mouseenter', 'timezones-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'timezones-layer', () => {
+        map.getCanvas().style.cursor = '';
+      });
+    });  
+    return () => map.remove();
   }, [combined]);
 
   const handleMapClick = (clickedFeature: Feature<Geometry, GeoJsonProperties>) => {
